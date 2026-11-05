@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CheckCircle2, Crown, Loader2, Sparkles, Video } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 import { CARTOON_DURATIONS, CARTOON_STYLES } from '@/lib/constants';
 import { cardClass, inputClass, primaryButtonClass, secondaryButtonClass } from '@/lib/ui';
 import type { Access } from '@/lib/types';
@@ -39,7 +39,16 @@ export default function CartoonPage({ access }: CartoonPageProps) {
     setResult(null);
 
     const request: CartoonRequest = { story: cleanStory, style, duration };
-    const { error: insertError } = await supabase.from('cartoon_requests').insert(request);
+
+    let insertError: { code?: string } | null = null;
+    try {
+      const res = await getSupabase().from('cartoon_requests').insert(request);
+      insertError = res.error;
+    } catch {
+      setError('Service abhi tayyar nahi. Thodi der baad dobara try karo.');
+      setGenerating(false);
+      return;
+    }
 
     if (insertError) {
       setGenerating(false);

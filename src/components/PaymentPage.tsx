@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { ArrowLeft, Check, CheckCircle2, Copy, Loader2, Smartphone } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 import { NAYAPAY_NAME, NAYAPAY_NUMBER, PRICE_LABEL } from '@/lib/constants';
 import { cardClass, inputClass, primaryButtonClass, secondaryButtonClass } from '@/lib/ui';
 
@@ -58,9 +58,15 @@ export default function PaymentPage({ onApproved, onBack }: PaymentPageProps) {
     setSubmitting(true);
     setError(null);
 
-    const { error: insertError } = await supabase
-      .from('payment_requests')
-      .insert({ tid: cleanTid, whatsapp: whatsapp.trim() });
+    let insertError: { code?: string } | null = null;
+    try {
+      const res = await getSupabase()
+        .from('payment_requests')
+        .insert({ tid: cleanTid, whatsapp: whatsapp.trim() });
+      insertError = res.error;
+    } catch {
+      insertError = { code: undefined };
+    }
 
     setSubmitting(false);
 
