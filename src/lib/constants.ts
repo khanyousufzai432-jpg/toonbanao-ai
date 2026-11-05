@@ -2,8 +2,8 @@ export const NAYAPAY_NUMBER = '03192341427';
 export const NAYAPAY_NAME = 'ToonBanao AI';
 export const PRICE_LABEL = '$10 / Rs. 2800';
 
-export const ADMIN_USERNAME = 'admin';
-export const ADMIN_PASSWORD = '12345';
+export const ADMIN_USERNAME = 'aliyanadmin';
+export const ADMIN_PASSWORD = 'admin@1001';
 
 export const CARTOON_STYLES = [
   '2D Cartoon - Funny Style',
