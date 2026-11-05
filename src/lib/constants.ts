@@ -16,4 +16,7 @@ export const CARTOON_DURATIONS = [
   '15 Second Video',
   '30 Second Video',
   '1 Minute Video',
+  '2 Minute Video',
+  '5 Minute Video',
+  '10 Minute Video',
 ] as const;

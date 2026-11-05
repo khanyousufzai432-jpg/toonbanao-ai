@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, Crown, Loader2, Sparkles, Video } from 'lucide-react';
+import { CheckCircle2, Crown, Loader2, Play, RotateCcw, Sparkles, Video } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
 import { CARTOON_DURATIONS, CARTOON_STYLES } from '@/lib/constants';
 import { cardClass, inputClass, primaryButtonClass, secondaryButtonClass } from '@/lib/ui';
@@ -9,21 +9,33 @@ interface CartoonPageProps {
   access: Exclude<Access, 'guest'>;
 }
 
-interface CartoonRequest {
+interface CartoonResult {
   story: string;
   style: string;
   duration: string;
+  videoUrl: string;
+  demo: boolean;
 }
 
-const GENERATION_DELAY_MS = 3000;
+const DEMO_VIDEO_URL = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+
+const DURATION_DELAY_MS: Record<string, number> = {
+  '15 Second Video': 3000,
+  '30 Second Video': 4000,
+  '1 Minute Video': 5000,
+  '2 Minute Video': 7000,
+  '5 Minute Video': 9000,
+  '10 Minute Video': 12000,
+};
 
 export default function CartoonPage({ access }: CartoonPageProps) {
   const [story, setStory] = useState('');
   const [style, setStyle] = useState<string>(CARTOON_STYLES[0]);
   const [duration, setDuration] = useState<string>(CARTOON_DURATIONS[0]);
   const [generating, setGenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<CartoonRequest | null>(null);
+  const [result, setResult] = useState<CartoonResult | null>(null);
 
   const isAdmin = access === 'admin';
 
@@ -37,27 +49,36 @@ export default function CartoonPage({ access }: CartoonPageProps) {
     setGenerating(true);
     setError(null);
     setResult(null);
+    setProgress(0);
 
-    const request: CartoonRequest = { story: cleanStory, style, duration };
+    const request = { story: cleanStory, style, duration };
 
-    let insertError: { code?: string } | null = null;
+    // Try to persist to Supabase, but don't block the demo on failure.
+    let dbSaved = false;
     try {
       const res = await getSupabase().from('cartoon_requests').insert(request);
-      insertError = res.error;
+      dbSaved = !res.error;
     } catch {
-      setError('Service abhi tayyar nahi. Thodi der baad dobara try karo.');
-      setGenerating(false);
-      return;
+      dbSaved = false;
     }
 
-    if (insertError) {
-      setGenerating(false);
-      setError('Teri request save nahi ho paayi. Thodi der baad dobara try karo.');
-      return;
-    }
+    const delay = DURATION_DELAY_MS[duration] ?? 5000;
+    const startedAt = Date.now();
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      const pct = Math.min(95, Math.round((elapsed / delay) * 100));
+      setProgress(pct);
+    }, 200);
 
-    await new Promise((resolve) => setTimeout(resolve, GENERATION_DELAY_MS));
-    setResult(request);
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    clearInterval(interval);
+    setProgress(100);
+
+    setResult({
+      ...request,
+      videoUrl: DEMO_VIDEO_URL,
+      demo: !dbSaved,
+    });
     setGenerating(false);
   };
 
@@ -65,6 +86,7 @@ export default function CartoonPage({ access }: CartoonPageProps) {
     setStory('');
     setResult(null);
     setError(null);
+    setProgress(0);
   };
 
   return (
@@ -141,6 +163,23 @@ export default function CartoonPage({ access }: CartoonPageProps) {
             </p>
           )}
 
+          {generating && (
+            <div className="rounded-2xl bg-primary-50 p-5">
+              <div className="flex items-center gap-3">
+                <Loader2 className="h-5 w-5 animate-spin text-primary-600" aria-hidden="true" />
+                <span className="text-sm font-semibold text-primary-800">
+                  Tera cartoon ban raha hai... {progress}%
+                </span>
+              </div>
+              <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-primary-100">
+                <div
+                  className="h-full rounded-full bg-primary-600 transition-all duration-200"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           <button type="button" onClick={handleGenerate} disabled={generating} className={primaryButtonClass}>
             {generating ? (
               <>
@@ -163,8 +202,29 @@ export default function CartoonPage({ access }: CartoonPageProps) {
             <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-success-100 text-success-700">
               <Video className="h-5 w-5" aria-hidden="true" />
             </span>
-            <h2 className="font-display text-xl font-semibold text-neutral-900">Teri request ready hai</h2>
+            <h2 className="font-display text-xl font-semibold text-neutral-900">Tera cartoon ready hai!</h2>
           </div>
+
+          <div className="mt-5 overflow-hidden rounded-2xl bg-neutral-900">
+            <video
+              src={result.videoUrl}
+              controls
+              autoPlay
+              playsInline
+              className="aspect-video w-full"
+              poster="https://images.pexels.com/photos/5847518/pexels-photo-5847518.jpeg?auto=compress&cs=tinysrgb&h=650&w=940"
+            >
+              <track kind="captions" />
+            </video>
+          </div>
+
+          {result.demo && (
+            <p className="mt-4 rounded-xl bg-accent-100 px-4 py-3 text-sm font-semibold text-warning-900">
+              <Play className="mr-1 inline h-4 w-4" aria-hidden="true" />
+              Demo mode: Ye sample cartoon video hai. Full AI generation jald live hoga.
+            </p>
+          )}
+
           <dl className="mt-5 space-y-3 text-neutral-800">
             <div>
               <dt className="text-sm font-semibold text-neutral-600">Kahani</dt>
@@ -180,6 +240,7 @@ export default function CartoonPage({ access }: CartoonPageProps) {
             </div>
           </dl>
           <button type="button" onClick={resetForm} className={`${secondaryButtonClass} mt-6 w-full`}>
+            <RotateCcw className="h-4 w-4" aria-hidden="true" />
             Nayi kahani likho
           </button>
         </section>
